@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Koťata a kočky</title>
+    <style>
+        :root {
+            --bg: #1d2330;
+            --panel: #2a3142;
+            --cell: #e9d9b8;
+            --cell2: #dcc99f;
+            --y: #f4c430;
+            --g: #8a8f98;
+            --text: #f2f2f2;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, Segoe UI, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px;
+            min-height: 100vh;
+        }
+
+        h1 {
+            margin: 4px 0 12px;
+            font-size: 24px;
+        }
+
+        #wrap {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns:repeat(6, 84px);
+            grid-template-rows:repeat(6, 84px);
+            gap: 3px;
+            background: #6b4f2a;
+            padding: 6px;
+            border-radius: 10px;
+        }
+
+        .cell {
+            background: var(--cell);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .cell:nth-child(odd) {
+            background: var(--cell2);
+        }
+
+        .cell.empty:hover {
+            outline: 3px solid rgba(0, 0, 0, .35);
+        }
+
+        .cell.pick {
+            outline: 3px dashed #c0392b;
+        }
+
+        .piece {
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid rgba(0, 0, 0, .45);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .35);
+            line-height: 1;
+        }
+
+        .piece.p0 {
+            background: var(--y);
+        }
+
+        .piece.p1 {
+            background: var(--g);
+        }
+
+        .piece.k {
+            width: 46px;
+            height: 46px;
+            font-size: 26px;
+        }
+
+        .piece.c {
+            width: 72px;
+            height: 72px;
+            font-size: 46px;
+            border-width: 4px;
+        }
+
+        #side {
+            background: var(--panel);
+            border-radius: 10px;
+            padding: 14px;
+            width: 270px;
+        }
+
+        .pl {
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 3px solid transparent;
+            background: rgba(255, 255, 255, .05);
+        }
+
+        .pl.active {
+            border-color: #fff;
+        }
+
+        .pl h3 {
+            margin: 0 0 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+        }
+
+        .dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .btns {
+            display: flex;
+            gap: 8px;
+        }
+
+        button {
+            font: inherit;
+            cursor: pointer;
+            border: 0;
+            border-radius: 6px;
+            padding: 8px 10px;
+            background: #455070;
+            color: #fff;
+            flex: 1;
+        }
+
+        button.sel {
+            background: #2e8b57;
+        }
+
+        button:disabled {
+            opacity: .35;
+            cursor: not-allowed;
+        }
+
+        #msg {
+            min-height: 44px;
+            margin: 8px 0;
+            font-size: 15px;
+        }
+
+        #restart {
+            width: 100%;
+            background: #8b3a3a;
+        }
+
+        #over {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+            font-size: 32px;
+            text-align: center;
+        }
+
+        #over button {
+            flex: none;
+            font-size: 18px;
+            padding: 12px 24px;
+        }
+
+        details {
+            margin-top: 12px;
+            font-size: 13px;
+            opacity: .85;
+        }
+    </style>
+</head>
+<body>
+<h1>🐱 Koťata a kočky 🐈</h1>
+<div id="wrap">
+    <div id="board"></div>
+    <div id="side">
+        <div id="msg"></div>
+        <div id="pl0" class="pl"></div>
+        <div id="pl1" class="pl"></div>
+        <button id="restart">Nová hra</button>
+        <details>
+            <summary>Pravidla</summary>
+            Kladeš kotě nebo kočku na volné pole. Všech 8 sousedních kusů se odsune o pole dál (kotě odsouvá jen koťata,
+            kočka koťata i kočky).
+            Kus, za kterým je obsazeno, se nepohne. Kus, který spadne z desky, se vrací majiteli.
+            Řada 3 tvých kusů (i diagonálně) zmizí z desky a za každý kus dostaneš kočku do zásoby.
+            Vyhráváš řadou 3 koček, nebo když máš na desce všech 8 koček.
+        </details>
+    </div>
+</div>
+<div id="over">
+    <div id="overTxt"></div>
+    <button onclick="init()">Hrát znovu</button>
+</div>
+
+<script>
+    const N = 6;
+    const NAMES = ['Žlutý', 'Šedý'];
+    let board, pool, turn, sel, grad, winner;
+
+    const $ = id => document.getElementById(id);
+    const inB = (r, c) => r >= 0 && r < N && c >= 0 && c < N;
+
+    function init() {
+        board = Array(N * N).fill(null);
+        pool = [{k: 8, c: 0}, {k: 8, c: 0}];
+        turn = 0;
+        sel = 'k';
+        grad = false;
+        winner = null;
+        $('over').style.display = 'none';
+        render();
+    }
+
+    function startTurn() {
+        const p = pool[turn];
+        grad = false;
+        if (p.k + p.c === 0) {
+            grad = true;
+        } else {
+            sel = p.k > 0 ? 'k' : 'c';
+        }
+    }
+
+    function place(i) {
+        if (winner !== null || grad || board[i]) return;
+        const p = pool[turn];
+        if (p[sel] <= 0) return;
+        p[sel]--;
+        board[i] = {p: turn, t: sel};
+        boop(i);
+        resolve();
+    }
+
+    function boop(i) {
+        const r0 = Math.floor(i / N), c0 = i % N;
+        const placed = board[i];
+        const snap = board.slice();
+        const moves = [];
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+            if (!dr && !dc) continue;
+            const r = r0 + dr, c = c0 + dc;
+            if (!inB(r, c)) continue;
+            const idx = r * N + c, piece = snap[idx];
+            if (!piece) continue;
+            if (placed.t === 'k' && piece.t === 'c') continue;
+            const nr = r + dr, nc = c + dc;
+            if (!inB(nr, nc)) moves.push({from: idx, to: -1, piece});
+            else if (!snap[nr * N + nc]) moves.push({from: idx, to: nr * N + nc, piece});
+        }
+        moves.forEach(m => board[m.from] = null);
+        moves.forEach(m => {
+            if (m.to < 0) pool[m.piece.p][m.piece.t]++;
+            else board[m.to] = m.piece;
+        });
+    }
+
+    function findLines() {
+        const lines = [];
+        const dirs = [[0, 1], [1, 0], [1, 1], [1, -1]];
+        for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) for (const [dr, dc] of dirs) {
+            const cells = [];
+            for (let k = 0; k < 3; k++) {
+                const rr = r + dr * k, cc = c + dc * k;
+                if (!inB(rr, cc)) break;
+                cells.push(rr * N + cc);
+            }
+            if (cells.length < 3) continue;
+            const first = board[cells[0]];
+            if (!first) continue;
+            if (cells.every(x => board[x] && board[x].p === first.p))
+                lines.push({p: first.p, cells, allCats: cells.every(x => board[x].t === 'c')});
+        }
+        return lines;
+    }
+
+    function resolve() {
+        const lines = findLines();
+        const order = [turn, 1 - turn];
+
+        for (const p of order) if (lines.some(l => l.p === p && l.allCats)) return finish(p);
+
+        for (const p of order) {
+            const set = new Set();
+            lines.filter(l => l.p === p).forEach(l => l.cells.forEach(x => set.add(x)));
+            set.forEach(x => {
+                board[x] = null;
+                pool[p].c++;
+            });
+        }
+
+        for (const p of order) {
+            if (board.filter(x => x && x.p === p && x.t === 'c').length === 8) return finish(p);
+        }
+        turn = 1 - turn;
+        startTurn();
+        render();
+    }
+
+    function finish(p) {
+        winner = p;
+        render();
+        $('overTxt').textContent = '🏆 Vyhrává ' + NAMES[p].toLowerCase() + ' hráč!';
+        $('over').style.display = 'flex';
+    }
+
+    function clickCell(i) {
+        if (winner !== null) return;
+        if (grad) {
+            const x = board[i];
+            if (x && x.p === turn && x.t === 'k') {
+                board[i] = null;
+                pool[turn].c++;
+                grad = false;
+                sel = 'c';
+                render();
+            }
+            return;
+        }
+        place(i);
+    }
+
+    function pieceHTML(x) {
+        return `<div class="piece p${x.p} ${x.t}">${x.t === 'k' ? '🐱' : '🐈'}</div>`;
+    }
+
+    function render() {
+        const b = $('board');
+        b.innerHTML = '';
+        board.forEach((x, i) => {
+            const d = document.createElement('div');
+            d.className = 'cell' + (x ? '' : ' empty') + (grad && x && x.p === turn && x.t === 'k' ? ' pick' : '');
+            if (x) d.innerHTML = pieceHTML(x);
+            d.onclick = () => clickCell(i);
+            b.appendChild(d);
+        });
+        for (let p = 0; p < 2; p++) {
+            const el = $('pl' + p), act = p === turn && winner === null;
+            el.className = 'pl' + (act ? ' active' : '');
+            const onBoard = board.filter(x => x && x.p === p && x.t === 'c').length;
+            el.innerHTML = `<h3><span class="dot" style="background:${p ? 'var(--g)' : 'var(--y)'}"></span>${NAMES[p]}</h3>
+      <div>Koťata v zásobě: <b>${pool[p].k}</b> · Kočky v zásobě: <b>${pool[p].c}</b></div>
+      <div style="font-size:13px;opacity:.8">Koček na desce: ${onBoard}/8</div>`;
+            if (act && !grad) {
+                const w = document.createElement('div');
+                w.className = 'btns';
+                w.style.marginTop = '8px';
+                w.innerHTML = `<button id="bk" ${pool[p].k <= 0 ? 'disabled' : ''} class="${sel === 'k' ? 'sel' : ''}">🐱 Kotě</button>
+                     <button id="bc" ${pool[p].c <= 0 ? 'disabled' : ''} class="${sel === 'c' ? 'sel' : ''}">🐈 Kočka</button>`;
+                el.appendChild(w);
+                w.querySelector('#bk').onclick = () => {
+                    sel = 'k';
+                    render();
+                };
+                w.querySelector('#bc').onclick = () => {
+                    sel = 'c';
+                    render();
+                };
+            }
+        }
+        $('msg').textContent = winner !== null ? 'Konec hry.'
+            : grad ? `${NAMES[turn]}: nemáš co položit – klikni na jedno své kotě na desce, které povýší na kočku.`
+                : `Na tahu: ${NAMES[turn]}. Klikni na volné pole.`;
+    }
+
+    $('restart').onclick = () => {
+        if (confirm('Opravdu začít novou hru?')) init();
+    };
+    init();
+</script>
+</body>
+</html>
