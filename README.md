@@ -4,7 +4,7 @@ Jednoduchá desková hra pro dva hráče na jednom počítači, inspirovaná des
 
 ## Spuštění
 
-Stáhni `koťata.html` a otevři ho v prohlížeči. Hrajete střídavě na jednom PC.
+Stáhni `kotata-a-kocky.html` a otevři ho v prohlížeči. Hrajete střídavě na jednom PC.
 
 ## Pravidla
 
